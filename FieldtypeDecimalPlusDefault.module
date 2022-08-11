@@ -46,7 +46,6 @@ class FieldtypeDecimalPlusDefault extends FieldtypeDecimal {
 	 *
 	 */
 	public function ___getConfigInputfields(Field $field) {
-		// var_dump((int) 0.02);
 		$field->errors('clear all');
 		// get steps from precision
 		$step = 1;
