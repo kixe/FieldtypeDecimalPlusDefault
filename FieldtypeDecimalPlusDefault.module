@@ -1,0 +1,100 @@
+<?php namespace ProcessWire;
+
+/**
+ * ProcessWire Decimal Fieldtype extended by default value
+ * Field that stores a decimal number.
+ * Workaround to fix some core issues
+ *
+ */
+
+class FieldtypeDecimalPlusDefault extends FieldtypeDecimal {
+	
+	public static function getModuleInfo() {
+		return array(
+			'title' => __('Decimal Plus Default', __FILE__),
+			'summary' => __('Field that stores a decimal number. Core Fieldtype extended by default value', __FILE__),
+			'version' => 100,
+			'requires' => 'FieldtypeDecimal',
+			'installs' => 'FieldtypeDecimal',
+			'author' => 'kixe'
+		);
+	}
+
+	/**
+	 * 
+	 * Instead of creating a complete new Inputfieldtype used by this Fieldtype this module uses a dirty afterHook() in InputfieldInteger::render() to modify the value attribute of the HTML input element.
+	 * 
+	 * @todo Update core InputfieldFloat and / or InputfieldInteger to allow default values with decimals. In a second step number fieldtypes could include an option to define a default value.
+	 *
+	 */
+	public function getInputfield(Page $page, Field $field) {
+		wire()->addHookAfter('InputfieldInteger::render', function ($e) use ($field) {
+			if ($field->name != $e->object->name) return;
+			$attrs = $e->object->getAttributes();
+			if(strlen($attrs['value'])) return;
+			if(!strlen($e->object->defaultValue) || strpos($e->object->defaultValue, '.') === false) return;
+			$e->return = preg_replace('/value\=\"[-+]?([0-9]*\.[0-9]+|[0-9]+)\"/', "value=\"{$e->object->defaultValue}\"", $e->return);
+		});	
+		return parent::getInputfield($page, $field);
+	}
+
+	/**
+	 * Get field configuration
+	 *
+	 * @param Field $field
+	 * @return InputfieldWrapper
+	 *
+	 */
+	public function ___getConfigInputfields(Field $field) {
+		// var_dump((int) 0.02);
+		$field->errors('clear all');
+		// get steps from precision
+		$step = 1;
+		if ($field->get('precision')) $step = 1 / 10 ** (int) $field->get('precision');
+
+		wire()->addHookBefore('InputfieldText::render', function($e) use ($field, $step) {
+			if (!in_array($e->object->name, ['min','max'])) return;
+			$f = $e->object;
+			$f->attr('type', 'number');
+			$f->attr('size', 10);
+			$f->attr('step', $step);
+
+			if ($f->name == 'max' && !is_null($field->max) && $field->min >= $f->attr('value')) {
+				$error = $this->_('The maximum value must be greater than the minimum value. Leave blank to ignore.');
+				$f->error($error);
+				$field->error($error);
+			}
+		});	
+
+		$ci = parent::___getConfigInputfields($field);
+
+		$f = $this->wire()->modules->get('InputfieldText');
+		$f->attr('name', 'defaultValue');
+		$f->attr('type', 'number');
+		$f->attr('size', 10);
+		$f->attr('step', $step);
+
+		// take in account min / max if set
+		if ((!is_null($field->min) && $field->min > $field->get('defaultValue')) || (!is_null($field->max) && $field->max < $field->get('defaultValue'))) {
+			$field->error($this->_('The default value is out of range. Check settings for the minimum and maximum value of this field.'));
+		}
+		$notes = [];
+		if (!is_null($field->get('min'))) {
+			// $f->attr('min', $field->get('min'));
+			$notes[] = sprintf($this->_('Min: %s'), $field->get('min'));
+		}
+		if (!is_null($field->get('max'))) {
+			// $f->attr('max', $field->get('max'));
+			$notes[] = sprintf($this->_('Max: %s'), $field->get('max'));
+		}
+		if (!empty($notes)) $f->notes = implode(', ',$notes) . '. ' . $this->_("Change under the 'Input' tab.");
+		$f->label = $this->_('Default value'); 
+		$f->description = $this->_('This value is assigned as the default for this field on pages with no value entered.');
+		$f->collapsed = Inputfield::collapsedBlank;
+		$f->attr('value', strlen((string) $field->get('defaultValue')) ? (float) $field->get('defaultValue') : ''); 
+		$ci->add($f);
+
+		return $ci;
+	}
+}
+
