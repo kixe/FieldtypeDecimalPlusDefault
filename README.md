@@ -15,5 +15,7 @@ If an init or default value is provided, it will be always converted to int. So 
 ### Workaround <small>(this module)</small>
 Instead of creating a complete new Inputfieldtype used by this Fieldtype this module uses a *dirty* `afterHook()` in `InputfieldInteger::render()` to modify the value attribute of the HTML input element.
 
+The module also also takes into account settings for minimum and maximum values and generates error messages in the module setup screen if the default value is out of range.
+
 ### Suggestion
 Update core **InputfieldFloat** and / or **InputfieldInteger** to allow default values with decimals. In a second step number fieldtypes could include an option to define a default value.
